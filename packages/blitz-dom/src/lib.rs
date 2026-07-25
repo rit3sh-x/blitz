@@ -71,6 +71,9 @@ mod accessibility;
 #[cfg(feature = "custom-widget")]
 pub use crate::node::Widget;
 
+#[cfg(feature = "svg-native")]
+pub mod svg;
+
 pub use config::{DocumentConfig, StyleThreading};
 pub use document::{BaseDocument, DocGuard, DocGuardMut, Document, PlainDocument};
 pub use markup5ever::{

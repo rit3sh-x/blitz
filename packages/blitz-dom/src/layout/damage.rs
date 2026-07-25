@@ -27,8 +27,25 @@ pub(crate) const CONSTRUCT_DESCENDENT: RestyleDamage =
 pub(crate) const ONLY_RELAYOUT: RestyleDamage =
     RestyleDamage::from_bits_retain(0b_0000_0000_0000_1000);
 
-pub(crate) const ALL_DAMAGE: RestyleDamage =
-    RestyleDamage::from_bits_retain(0b_0000_0000_0111_1111);
+pub(crate) const CONSTRUCT_SVG: RestyleDamage =
+    RestyleDamage::from_bits_retain(0b_0000_0000_1000_0000);
+
+pub(crate) const ALL_DAMAGE: RestyleDamage = RestyleDamage::from_bits_retain(
+    CONSTRUCT_BOX.bits()
+        | CONSTRUCT_FC.bits()
+        | CONSTRUCT_DESCENDENT.bits()
+        | ONLY_RELAYOUT.bits()
+        | CONSTRUCT_SVG.bits(),
+);
+
+/// Propagate SVG damage up to the owning <svg> root
+/// TODO: implement once SpecialElementData::SvgRoot variant is added in P1
+#[cfg(feature = "svg-native")]
+#[allow(dead_code)]
+pub fn propagate_svg_damage(_doc: &mut BaseDocument, _node_id: usize) {
+    // Will be implemented in P1 when SvgRoot variant exists
+    // For now, just a placeholder
+}
 
 impl BaseDocument {
     pub(crate) fn propagate_damage_flags(

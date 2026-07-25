@@ -8,6 +8,7 @@ use crate::StyleThreading;
 use crate::layout::damage::compute_layout_damage;
 use crate::node::Node;
 use crate::node::NodeData;
+use markup5ever::ns;
 use markup5ever::{LocalName, LocalNameStaticSet, Namespace, NamespaceStaticSet, local_name};
 use selectors::bloom::BLOOM_HASH_MASK;
 use selectors::{
@@ -365,7 +366,7 @@ impl selectors::Element for BlitzNode<'_> {
     }
 
     fn is_html_element_in_html_document(&self) -> bool {
-        true // self.has_namespace(ns!(html))
+        self.is_element() && self.namespace() == &ns!(html)
     }
 
     fn has_local_name(&self, local_name: &LocalName) -> bool {
@@ -382,14 +383,20 @@ impl selectors::Element for BlitzNode<'_> {
 
     fn attr_matches(
         &self,
-        _ns: &NamespaceConstraint<&GenericAtomIdent<NamespaceStaticSet>>,
+        ns: &NamespaceConstraint<&GenericAtomIdent<NamespaceStaticSet>>,
         local_name: &GenericAtomIdent<LocalNameStaticSet>,
         operation: &AttrSelectorOperation<&AtomString>,
     ) -> bool {
-        match self.data.attr(local_name.0.clone()) {
-            None => false,
-            Some(attr_value) => operation.eval_str(attr_value),
-        }
+        self.attrs().is_some_and(|attrs| {
+            attrs.iter().any(|attr| {
+                let ns_match = match ns {
+                    NamespaceConstraint::Any => true,
+                    NamespaceConstraint::Specific(url) => url.0 == attr.name.ns,
+                };
+
+                ns_match && attr.name.local == local_name.0 && operation.eval_str(&attr.value)
+            })
+        })
     }
 
     fn match_non_ts_pseudo_class(
@@ -593,7 +600,7 @@ impl<'a> TElement for BlitzNode<'a> {
     }
 
     fn is_html_element(&self) -> bool {
-        self.is_element()
+        self.is_element() && self.namespace() == &ns!(html)
     }
 
     // not implemented.....
@@ -603,7 +610,7 @@ impl<'a> TElement for BlitzNode<'a> {
 
     // need to check the namespace
     fn is_svg_element(&self) -> bool {
-        false
+        self.is_element() && self.namespace() == &ns!(svg)
     }
 
     fn style_attribute(&self) -> Option<ArcBorrow<'_, Locked<PropertyDeclarationBlock>>> {
@@ -772,10 +779,11 @@ impl<'a> TElement for BlitzNode<'a> {
         None
     }
 
-    fn get_attr(&self, attr: &style::LocalName, _ns: &style::Namespace) -> Option<String> {
-        // TODO: filter by namespace
-        // TODO: case-insensitive matching for HTML-ns attrs
-        self.attr(attr.0.clone()).map(|s| s.to_string())
+    fn get_attr(&self, attr: &style::LocalName, namespace: &style::Namespace) -> Option<String> {
+        self.attrs()?
+            .iter()
+            .find(|a| a.name.ns == **namespace && a.name.local == **attr)
+            .map(|a| a.value.clone())
     }
 
     fn lang_attr(&self) -> Option<style::selector_parser::AttrValue> {
@@ -814,6 +822,28 @@ impl<'a> TElement for BlitzNode<'a> {
     ) where
         V: Push<style::applicable_declarations::ApplicableDeclarationBlock>,
     {
+        #[cfg(feature = "svg-native")]
+        {
+            if self.namespace() == &ns!(svg) {
+                use crate::svg::attrs::svg_presentation_hint;
+
+                if let Some(attrs) = self.attrs() {
+                    for attr in attrs {
+                        if let Some(decl) = svg_presentation_hint(&attr.name.local, &attr.value) {
+                            let block =
+                                PropertyDeclarationBlock::with_one(decl, Importance::Normal);
+                            hints.push(ApplicableDeclarationBlock::from_declarations(
+                                Arc::new(self.guard.wrap(block)),
+                                CascadeLevel::new(CascadeOrigin::PresHints),
+                                LayerOrder::root(),
+                            ));
+                        }
+                    }
+                }
+                return; // Don't process as HTML
+            }
+        }
+
         let Some(elem) = self.data.downcast_element() else {
             return;
         };

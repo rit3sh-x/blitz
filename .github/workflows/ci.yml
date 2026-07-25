@@ -152,6 +152,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        svg: [true, false]
+        svg-native: [true, false]
         platform:
           - {
               name: windows,
@@ -194,7 +196,7 @@ jobs:
               args: "--all",
             }
 
-    name: Test (${{ matrix.platform.name }})
+    name: Test (${{ matrix.platform.name }}, svg=${{ matrix.svg }}, svg-native=${{ matrix.svg-native }})
 
     steps:
       - uses: actions/checkout@v4
@@ -237,6 +239,25 @@ jobs:
         run: ${{ matrix.platform.setup }} 
         shell: bash
 
+      - name: Build feature flags
+        id: features
+        run: |
+          FEATURES=""
+          if [ "${{ matrix.svg }}" = "true" ]; then
+            FEATURES="${FEATURES}svg,"
+          fi
+          if [ "${{ matrix.svg-native }}" = "true" ]; then
+            FEATURES="${FEATURES}svg-native,"
+          fi
+          # Remove trailing comma
+          FEATURES="${FEATURES%,}"
+          if [ -z "$FEATURES" ]; then
+            echo "flag=--no-default-features" >> $GITHUB_OUTPUT
+          else
+            echo "flag=--features ${FEATURES}" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
       - name: test
         run: |
-          ${{ env.RUST_CARGO_COMMAND }} ${{ matrix.platform.command }} ${{ matrix.platform.args }} --target ${{ matrix.platform.target }}
+          ${{ env.RUST_CARGO_COMMAND }} ${{ matrix.platform.command }} ${{ matrix.platform.args }} --target ${{ matrix.platform.target }} ${{ steps.features.outputs.flag }}

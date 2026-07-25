@@ -5,6 +5,45 @@
 @namespace url(http://www.w3.org/1999/xhtml);
 /* set default namespace to HTML */
 @namespace xul url(http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul);
+/* SVG namespace */
+@namespace svg url(http://www.w3.org/2000/svg);
+
+svg|svg {
+    display: inline;
+}
+
+svg|svg:not(:root),
+svg|symbol,
+svg|image,
+svg|marker,
+svg|pattern,
+svg|foreignObject {
+    overflow: hidden;
+}
+
+svg|defs,
+svg|clipPath,
+svg|marker,
+svg|mask,
+svg|pattern,
+svg|symbol,
+svg|filter,
+svg|linearGradient,
+svg|radialGradient,
+svg|stop,
+svg|title,
+svg|desc,
+svg|metadata {
+    display: none;
+}
+
+svg|foreignObject {
+    display: block;
+}
+
+svg|* {
+    pointer-events: visiblePainted;
+}
 
 @font-face {
     font-family: -moz-bullet-font;
